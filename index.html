@@ -389,10 +389,10 @@ footer { background:#fff; border-top:1px solid var(--border); padding:28px 32px;
     <div class="progress-msg" id="progressMsg">영상을 살펴보고 있어요...</div>
     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
     <div class="progress-steps">
-      <div class="p-step" id="ps1">📸 프레임 추출</div>
-      <div class="p-step" id="ps2">👁️ 장면 분석</div>
-      <div class="p-step" id="ps3">😊 감정 살펴보기</div>
-      <div class="p-step" id="ps4">✍️ 리포트 작성</div>
+      <div class="p-step" id="ps1">🎬 영상 업로드</div>
+      <div class="p-step" id="ps2">👁️ Gemini 영상 분석</div>
+      <div class="p-step" id="ps3">✍️ Claude 리포트 작성</div>
+      <div class="p-step" id="ps4">🎉 완료</div>
     </div>
   </div>
 
@@ -714,6 +714,7 @@ function loadScript(src) {
   });
 }
 
+
 // ── HELPERS ──
 function formatTime(sec) {
   const m = Math.floor(sec / 60).toString().padStart(2, '0');
@@ -731,146 +732,146 @@ function setSel(el, gid) {
 
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
-// ── ANALYSIS ──
+// ════════════════════════════════════════════════
+//  STEP 1: Gemini — 영상 전체를 보고 관찰 내용 추출
+// ════════════════════════════════════════════════
+async function analyzeVideoWithGemini(file) {
+  const sizeMB = (file.size/1024/1024).toFixed(1);
+  console.log('[Gemini] 영상 업로드 시작:', file.name, sizeMB+'MB');
 
-async function startAnalysis() {
-  if (!videoFile) { alert('먼저 영상을 올려주세요 😊'); return; }
-  document.getElementById('analyzeBtn').disabled = true;
-  document.getElementById('progressCard').classList.add('visible');
-  document.getElementById('resultsWrap').classList.remove('visible');
-
-  const steps = ['ps1', 'ps2', 'ps3', 'ps4'];
-  const setStep = i => steps.forEach((s, j) => {
-    document.getElementById(s).className = j < i ? 'p-step done' : j === i ? 'p-step active' : 'p-step';
+  // 1. 서버에 업로드 시작 요청
+  const startRes = await fetch('/api/gemini/upload/start', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-upload-content-length': file.size,
+      'x-upload-content-type': file.type || 'video/mp4',
+    },
+    body: JSON.stringify({ file: { display_name: file.name } })
   });
-
-  // STEP 1: 프레임 준비 확인
-  setStep(0);
-  document.getElementById('progressFill').style.width = '8%';
-
-  if (extractedFrames.length === 0) {
-    document.getElementById('progressMsg').textContent = '프레임 추출 중... 잠깐만요 ⏳';
-    for (let i = 0; i < 30 && extractedFrames.length === 0; i++) await delay(500);
+  if (!startRes.ok) {
+    const e = await startRes.json().catch(() => ({}));
+    throw new Error('업로드 시작 실패: ' + (e?.error || startRes.status));
   }
+  const { uploadUrl } = await startRes.json();
+  if (!uploadUrl) throw new Error('업로드 URL을 받지 못했어요');
+  console.log('[Gemini] 업로드 URL 획득');
 
-  const frameCount = extractedFrames.length;
-  document.getElementById('progressMsg').textContent =
-    frameCount > 0
-      ? `📸 ${frameCount}개 프레임 확보! AI에게 전송할게요`
-      : '⚠️ 프레임 추출 실패 — 영상 메타데이터만으로 분석해요';
-
-  document.getElementById('progressFill').style.width = '25%';
-  await delay(500);
-
-  // STEP 2: API 전송
-  setStep(1);
-  document.getElementById('progressMsg').textContent =
-    frameCount > 0
-      ? `👁️ ${frameCount}장의 실제 장면을 Claude가 살펴보고 있어요`
-      : '🔍 영상 정보를 바탕으로 분석 중이에요';
-  document.getElementById('progressFill').style.width = '35%';
-
-  const tick = (async () => {
-    for (const p of [45, 55, 65, 74, 82]) {
-      await delay(800);
-      document.getElementById('progressFill').style.width = p + '%';
-    }
-  })();
-
-  // STEP 3
-  setStep(2);
-  document.getElementById('progressMsg').textContent = '부모님과 아이의 상호작용을 살펴보고 있어요 💛';
-
-  let data;
-  try {
-    data = await callClaudeVision(buildPrompt(), extractedFrames);
-    await tick;
-  } catch(e) {
-    await tick;
-    // Show real error to user — no silent mock fallback
-    document.getElementById('progressCard').classList.remove('visible');
-    document.getElementById('analyzeBtn').disabled = false;
-    alert('분석 중 오류가 발생했어요 😔\n\n' + e.message + '\n\nAPI 키 설정을 확인하거나 잠시 후 다시 시도해 주세요.');
-    return;
+  // 2. 파일 데이터 전송
+  document.getElementById('progressMsg').textContent = `🎬 영상 전송 중... (${sizeMB}MB)`;
+  const fileBytes = await file.arrayBuffer();
+  const uploadRes = await fetch('/api/gemini/upload/data', {
+    method: 'POST',
+    headers: {
+      'x-upload-url': uploadUrl,
+      'Content-Type': file.type || 'video/mp4',
+    },
+    body: fileBytes
+  });
+  if (!uploadRes.ok) {
+    const e = await uploadRes.json().catch(() => ({}));
+    throw new Error('파일 전송 실패: ' + (e?.error || uploadRes.status));
   }
+  const uploadData = await uploadRes.json();
+  let fileUri   = uploadData.file?.uri;
+  let fileState = uploadData.file?.state;
+  const fileFullName = uploadData.file?.name; // "files/xxxx"
+  const fileId = fileFullName?.split('/').pop();
+  console.log('[Gemini] 업로드 완료, 상태:', fileState, 'ID:', fileId);
 
-  // STEP 4: 렌더링
-  setStep(3);
-  document.getElementById('progressMsg').textContent = '따뜻한 리포트를 정리하고 있어요 ✍️';
-  document.getElementById('progressFill').style.width = '95%';
-  await delay(400);
+  // 3. 처리 완료 대기
+  for (let i = 0; i < 30 && fileState !== 'ACTIVE'; i++) {
+    await delay(2000);
+    const statusRes = await fetch(`/api/gemini/files/${fileId}`);
+    const statusData = await statusRes.json();
+    fileState = statusData.state;
+    document.getElementById('progressMsg').textContent = `⏳ Gemini가 영상을 처리하고 있어요... (${i+1}/30)`;
+    console.log('[Gemini] 처리 중...', fileState);
+  }
+  if (fileState !== 'ACTIVE') throw new Error('Gemini 파일 처리 타임아웃');
 
-  steps.forEach(s => document.getElementById(s).className = 'p-step done');
-  document.getElementById('progressFill').style.width = '100%';
-  await delay(300);
+  // 3. 영상 분석 요청
+  const age   = document.querySelector('#ageGroup   .toggle-btn.active')?.textContent || selectedAge;
+  const focus = document.querySelector('#focusGroup .toggle-btn.active')?.textContent || selectedFocus;
+  const mood  = document.querySelector('#moodGroup  .toggle-btn.active')?.textContent || selectedMood;
 
-  renderResults(data);
-  document.getElementById('progressCard').classList.remove('visible');
-  document.getElementById('resultsWrap').classList.add('visible');
-  document.getElementById('analyzeBtn').disabled = false;
-  document.getElementById('resultsWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const observePrompt = `이 영상은 부모와 아이(${age}, 요즘 상태: ${mood})의 놀이 영상이에요.
+부모님이 특히 궁금한 것: ${focus}
+
+영상 전체를 처음부터 끝까지 꼼꼼히 보고, 아래 항목을 시간 순서대로 구체적으로 관찰해 주세요:
+
+1. 전체 영상 분위기와 놀이 종류
+2. 부모의 칭찬/격려 표현 (언제, 어떻게, 몇 번)
+3. 부모와 아이의 눈 맞춤과 표정 교류
+4. 아이가 말하거나 행동할 때 부모의 반응
+5. 누가 놀이를 주도하는지 (부모 vs 아이)
+6. 인상적인 따뜻한 순간들 (타임스탬프 포함)
+7. 개선이 필요해 보이는 순간들
+
+관찰한 내용을 최대한 구체적으로, 실제 장면을 인용해서 설명해 주세요.`;
+
+  const genRes = await fetch('/api/gemini/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { file_data: { mime_type: file.type || 'video/mp4', file_uri: fileUri } },
+          { text: observePrompt }
+        ]
+      }],
+      generationConfig: { temperature: 0.4, maxOutputTokens: 2048 }
+    })
+  });
+  if (!genRes.ok) {
+    const e = await genRes.json().catch(() => ({}));
+    throw new Error('Gemini 분석 실패: ' + (e?.error?.message || genRes.status));
+  }
+  const genData = await genRes.json();
+  const observation = genData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  console.log('[Gemini] 관찰 완료, 길이:', observation.length);
+  return observation;
 }
 
-function buildPrompt() {
-  const hasFrames = extractedFrames.length > 0;
 
-  // 설정값 읽기 — DOM에서 직접 읽어서 state 불일치 방지
+
+// ════════════════════════════════════════════════
+//  STEP 2: Claude — Gemini 관찰 내용을 PCIT 리포트로 변환
+// ════════════════════════════════════════════════
+async function generateReportWithClaude(observation) {
   const age   = document.querySelector('#ageGroup   .toggle-btn.active')?.textContent || selectedAge;
   const focus = document.querySelector('#focusGroup .toggle-btn.active')?.textContent || selectedFocus;
   const mood  = document.querySelector('#moodGroup  .toggle-btn.active')?.textContent || selectedMood;
 
   const focusGuide = {
-    '전반적으로 다 알고 싶어요':      '칭찬 방식, 감정 교류, 반응 방식, 놀이 주도권 모두 균형 있게 분석해 주세요.',
-    '칭찬을 잘 하고 있는지 궁금해요':  '칭찬의 빈도, 구체성, 아이 반응을 특히 집중해서 분석해 주세요.',
-    '감정이 잘 통하는지 궁금해요':     '표정, 눈 맞춤, 감정 공명 순간을 특히 집중해서 분석해 주세요.',
+    '전반적으로 다 알고 싶어요':       '칭찬, 감정 교류, 반응, 놀이 주도권 모두 균형 있게 분석해 주세요.',
+    '칭찬을 잘 하고 있는지 궁금해요':   '칭찬의 빈도, 구체성, 아이 반응을 특히 집중해서 분석해 주세요.',
+    '감정이 잘 통하는지 궁금해요':      '표정, 눈 맞춤, 감정 공명 순간을 특히 집중해서 분석해 주세요.',
     '아이 말을 잘 들어주는지 궁금해요': '반응 속도, 따라 말하기, 아이 주도 따르기를 특히 집중해서 분석해 주세요.',
   };
-  const focusInstruction = focusGuide[focus] || focusGuide['전반적으로 다 알고 싶어요'];
 
-  const frameSection = hasFrames ? `
-## 실제 영상 프레임 분석 지시
-첨부된 ${extractedFrames.length}장의 실제 영상 프레임을 직접 보고 분석하세요.
-타임스탬프: ${extractedFrames.map(f => f.timeLabel).join(', ')}
-
-각 프레임에서 반드시 관찰하고 보고서에 인용할 것:
-- 부모와 아이의 표정 (웃음, 집중, 무표정 등)
-- 시선 방향과 눈 맞춤 여부
-- 신체 거리와 접촉 (가까이 앉음, 손 잡기 등)
-- 놀이 도구와 활동 종류
-- 누가 주도하고 있는지 (부모 vs 아이)
-
-⚠️ 중요: 프레임에서 실제로 관찰한 내용만 언급하세요. 프레임에서 보이지 않는 내용을 지어내지 마세요.
-moments의 time 필드는 반드시 첨부된 타임스탬프 중 하나를 사용하세요.
-` : `
-## 분석 방식
-영상 프레임을 가져올 수 없었습니다. 아이 나이(${age})와 상태(${mood})를 바탕으로
-일반적인 놀이 상황을 가정하여 분석하되, 가정임을 feelingSummary에 한 번 언급해 주세요.
-`;
-
-  return `당신은 아동 심리 및 부모-자녀 상호작용 전문가입니다.
+  const prompt = `당신은 아동 심리 및 부모-자녀 상호작용 전문가입니다.
 
 ## 아이 정보
-- 나이: ${age}
-- 요즘 상태: ${mood}
-- 부모님이 특히 궁금한 것: ${focus}
+- 나이: ${age} / 상태: ${mood} / 부모님 관심사: ${focus}
+- 분석 집중 포인트: ${focusGuide[focus] || focusGuide['전반적으로 다 알고 싶어요']}
 
-## 분석 집중 포인트
-${focusInstruction}
+## Gemini가 영상을 보고 관찰한 내용
+${observation}
 
-${frameSection}
+## 지시사항
+위 관찰 내용을 바탕으로 PCIT 기법으로 분석하세요.
+- 전문용어(PRIDE, CDI, PDI) 절대 사용 금지
+- 부모님께 직접 말하듯 따뜻하고 친근하게
+- 관찰된 실제 장면을 구체적으로 인용
+- 각 카드 내용이 서로 중복되지 않게
 
-## 출력 규칙
-- PCIT 전문용어(PRIDE, CDI, PDI, DPICS) 절대 사용 금지
-- 부모님께 직접 말하듯 따뜻하고 친근한 언어 사용
-- 각 분석 카드의 text는 실제 관찰 내용을 구체적으로 포함할 것
-- 같은 내용이 반복되지 않도록 각 카드를 독립적으로 작성
-
-반드시 아래 JSON만 반환하세요 (다른 텍스트 없이):
+반드시 아래 JSON만 반환하세요:
 
 {
-  "feelingEmoji": "<이모지 1개>",
+  "feelingEmoji": "<이모지>",
   "feelingTitle": "<따뜻한 한 줄 제목>",
-  "feelingSummary": "<부모님께 직접 말하듯 2-3문장. 실제 관찰한 구체적 장면 언급>",
+  "feelingSummary": "<부모님께 직접 말하듯 2-3문장, 실제 관찰 장면 인용>",
   "scores": [
     {"label":"칭찬 표현","emoji":"🌟","value":<0-100>},
     {"label":"감정 교류","emoji":"💛","value":<0-100>},
@@ -878,10 +879,10 @@ ${frameSection}
     {"label":"함께 집중","emoji":"👀","value":<0-100>}
   ],
   "analysisCards": [
-    {"emoji":"🌟","title":"칭찬 & 격려","subtitle":"아이에게 칭찬을 어떻게 하고 있나요?","score":<0-100>,"colorClass":"fill-peach","text":"<실제 관찰 기반 2-3문장>","tags":[{"text":"<태그>","type":"good|warn|info"}]},
-    {"emoji":"💛","title":"감정 나누기","subtitle":"아이 마음을 얼마나 읽어주고 있나요?","score":<0-100>,"colorClass":"fill-yellow","text":"<실제 관찰 기반 2-3문장>","tags":[{"text":"<태그>","type":"good|warn|info"}]},
-    {"emoji":"🗣️","title":"따라하기 & 맞장구","subtitle":"아이의 말과 행동에 얼마나 반응하나요?","score":<0-100>,"colorClass":"fill-green","text":"<실제 관찰 기반 2-3문장>","tags":[{"text":"<태그>","type":"good|warn|info"}]},
-    {"emoji":"🎯","title":"아이 주도 따르기","subtitle":"놀이를 누가 이끌고 있나요?","score":<0-100>,"colorClass":"fill-blue","text":"<실제 관찰 기반 2-3문장>","tags":[{"text":"<태그>","type":"good|warn|info"}]}
+    {"emoji":"🌟","title":"칭찬 & 격려","subtitle":"아이에게 칭찬을 어떻게 하고 있나요?","score":<0-100>,"colorClass":"fill-peach","text":"<관찰 기반 2-3문장>","tags":[{"text":"<태그>","type":"good|warn|info"}]},
+    {"emoji":"💛","title":"감정 나누기","subtitle":"아이 마음을 얼마나 읽어주고 있나요?","score":<0-100>,"colorClass":"fill-yellow","text":"<관찰 기반 2-3문장>","tags":[{"text":"<태그>","type":"good|warn|info"}]},
+    {"emoji":"🗣️","title":"따라하기 & 맞장구","subtitle":"아이의 말과 행동에 얼마나 반응하나요?","score":<0-100>,"colorClass":"fill-green","text":"<관찰 기반 2-3문장>","tags":[{"text":"<태그>","type":"good|warn|info"}]},
+    {"emoji":"🎯","title":"아이 주도 따르기","subtitle":"놀이를 누가 이끌고 있나요?","score":<0-100>,"colorClass":"fill-blue","text":"<관찰 기반 2-3문장>","tags":[{"text":"<태그>","type":"good|warn|info"}]}
   ],
   "checklist": [
     {"label":"<소통 습관>","desc":"<관찰 기반 한 문장>","status":"yes|partial|no"},
@@ -892,109 +893,109 @@ ${frameSection}
     {"label":"<소통 습관>","desc":"<관찰 기반 한 문장>","status":"yes|partial|no"}
   ],
   "moments": [
-    {"time":"<실제 타임스탬프>","event":"<순간 이름>","detail":"<프레임에서 본 구체적 장면>"},
-    {"time":"<실제 타임스탬프>","event":"<순간 이름>","detail":"<프레임에서 본 구체적 장면>"},
-    {"time":"<실제 타임스탬프>","event":"<순간 이름>","detail":"<프레임에서 본 구체적 장면>"},
-    {"time":"<실제 타임스탬프>","event":"<순간 이름>","detail":"<프레임에서 본 구체적 장면>"}
+    {"time":"<타임스탬프>","event":"<순간 이름>","detail":"<실제 장면 한 문장>"},
+    {"time":"<타임스탬프>","event":"<순간 이름>","detail":"<실제 장면 한 문장>"},
+    {"time":"<타임스탬프>","event":"<순간 이름>","detail":"<실제 장면 한 문장>"},
+    {"time":"<타임스탬프>","event":"<순간 이름>","detail":"<실제 장면 한 문장>"}
   ],
   "tips": [
-    {"title":"<팁 제목>","text":"<이 영상에서 관찰한 상황에 맞는 구체적 예시>"},
-    {"title":"<팁 제목>","text":"<이 영상에서 관찰한 상황에 맞는 구체적 예시>"},
-    {"title":"<팁 제목>","text":"<이 영상에서 관찰한 상황에 맞는 구체적 예시>"},
-    {"title":"<팁 제목>","text":"<이 영상에서 관찰한 상황에 맞는 구체적 예시>"}
+    {"title":"<팁 제목>","text":"<이 영상 상황에 맞는 구체적 예시>"},
+    {"title":"<팁 제목>","text":"<이 영상 상황에 맞는 구체적 예시>"},
+    {"title":"<팁 제목>","text":"<이 영상 상황에 맞는 구체적 예시>"},
+    {"title":"<팁 제목>","text":"<이 영상 상황에 맞는 구체적 예시>"}
   ],
   "closingMessage": "<부모님을 따뜻하게 격려하는 마무리 2문장>"
 }`;
-}
-
-async function callClaudeVision(prompt, frames) {
-  const content = [];
-
-  if (frames.length > 0) {
-    content.push({ type: 'text', text: `아래 ${frames.length}장의 실제 영상 프레임을 순서대로 분석해 주세요:` });
-    frames.forEach((f, i) => {
-      content.push({ type: 'text', text: `[프레임 ${i + 1}/${frames.length} — ${f.timeLabel}]` });
-      content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: f.base64 } });
-    });
-  }
-
-  content.push({ type: 'text', text: prompt });
 
   const res = await fetch('/api/analyze', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
-      messages: [{ role: 'user', content }]
+      messages: [{ role: 'user', content: prompt }]
     })
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `API 오류 (${res.status})`);
+    const e = await res.json().catch(() => ({}));
+    throw new Error('Claude 리포트 실패: ' + (e?.error?.message || res.status));
   }
-
   const data = await res.json();
-
-  // Log for debugging
-  console.log('API response:', data);
-  console.log('Frames sent:', frames.length);
-  console.log('Stop reason:', data.stop_reason);
-
+  console.log('[Claude] 리포트 완료, stop_reason:', data.stop_reason);
   const text = data.content.map(i => i.text || '').join('');
-  const start = text.indexOf('{');
-  const end   = text.lastIndexOf('}');
-  if (start === -1 || end === -1) throw new Error('응답에서 JSON을 찾을 수 없어요');
+  const start = text.indexOf('{'), end = text.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('JSON 파싱 실패');
   return JSON.parse(text.slice(start, end + 1));
 }
-function getMockData() {
-  return {
-    feelingEmoji:"🌈",
-    feelingTitle:"따뜻하고 활기찬 놀이 시간이었어요!",
-    feelingSummary:"부모님과 아이가 함께 집중하는 시간이 많았고, 서로 웃으며 즐겁게 교감하는 모습이 정말 보기 좋았어요. 칭찬도 자주 해주셨는데, 조금 더 구체적으로 표현해 주시면 아이가 훨씬 더 크게 기뻐한답니다 😊",
-    scores:[
-      {label:"칭찬 표현",emoji:"🌟",value:82},
-      {label:"감정 교류",emoji:"💛",value:74},
-      {label:"반응하기",emoji:"🤝",value:68},
-      {label:"함께 집중",emoji:"👀",value:79}
-    ],
-    analysisCards:[
-      {emoji:"🌟",title:"칭찬 & 격려",subtitle:"아이에게 칭찬을 어떻게 하고 있나요?",score:82,colorClass:"fill-peach",
-        text:"영상 내내 아이를 자주 칭찬해 주셨어요! 다만 '잘했어', '착하다' 같은 표현보다 '블록을 이렇게 높이 쌓았네!'처럼 아이가 한 행동을 구체적으로 말해주면, 아이가 자신이 뭘 잘했는지 더 잘 알게 되고 자신감도 쑥쑥 자라요.",
-        tags:[{text:"칭찬 자주 함 👍",type:"good"},{text:"더 구체적으로 해보기",type:"warn"}]},
-      {emoji:"💛",title:"감정 나누기",subtitle:"아이 마음을 얼마나 읽어주고 있나요?",score:74,colorClass:"fill-yellow",
-        text:"아이가 신나거나 집중할 때 부모님도 함께 표정이 밝아지는 모습이 참 좋았어요. 아이가 장난감이 뜻대로 안 돼서 답답해할 때, '아 그게 잘 안 됐구나, 속상하지?'라고 먼저 마음을 읽어주면 아이가 훨씬 빨리 안정된답니다.",
-        tags:[{text:"표정 교류 잘 됨",type:"good"},{text:"힘들 때 공감 표현",type:"warn"}]},
-      {emoji:"🗣️",title:"따라하기 & 맞장구",subtitle:"아이의 말과 행동에 얼마나 반응하나요?",score:68,colorClass:"fill-green",
-        text:"아이가 말할 때 잘 들어주셨어요. 한 가지 팁을 드리자면, 아이가 '부릉부릉' 하면 부모님도 '그래, 부릉부릉!'하고 따라해 주세요. 아이는 '내가 하는 게 재밌는 거구나'하고 느끼고 더 신이 나서 놀게 된답니다.",
-        tags:[{text:"경청 잘 함",type:"good"},{text:"말·행동 따라하기 늘리기",type:"warn"}]},
-      {emoji:"🎯",title:"아이 주도 따르기",subtitle:"놀이를 누가 이끌고 있나요?",score:79,colorClass:"fill-blue",
-        text:"아이가 놀이를 주도하도록 잘 따라가 주시는 편이에요. 가끔 '이거 해봐', '저기 가자'하는 순간이 있었는데, 이 시간만큼은 아이가 완전히 대장이 되도록 맡겨두면 아이 자신감이 더욱 커진답니다.",
-        tags:[{text:"아이 주도 존중",type:"good"},{text:"지시 조금 줄이기",type:"info"}]}
-    ],
-    checklist:[
-      {label:"아이가 한 일을 말로 설명해 주기",desc:"'와, 빨간 블록을 저기 올렸네!'처럼 아이 행동을 중계해 주는 것",status:"yes"},
-      {label:"구체적으로 칭찬하기",desc:"'잘했어' 대신 어떤 점이 좋았는지 콕 집어서 말해주기",status:"partial"},
-      {label:"아이 말 그대로 따라 반복하기",desc:"아이가 한 말을 그대로 혹은 조금 늘려서 다시 말해주기",status:"yes"},
-      {label:"아이 행동 따라 하기",desc:"아이가 하는 것을 옆에서 똑같이 해보며 함께 놀기",status:"partial"},
-      {label:"즐거운 표정·목소리로 놀기",desc:"진심으로 즐기는 모습을 표정과 목소리로 표현하기",status:"yes"},
-      {label:"부정적인 말 줄이기",desc:"'안 돼', '그렇게 하면 안 되지' 같은 표현 최소화하기",status:"yes"}
-    ],
-    moments:[
-      {time:"00:42",event:"🌟 첫 번째 구체적 칭찬",detail:"아이가 블록 탑을 쌓자 '혼자서 이렇게 높이 쌓았네!'라고 반응해 아이가 환하게 웃었어요."},
-      {time:"02:15",event:"👀 같이 집중하는 순간",detail:"부모님과 아이가 같은 장난감을 함께 바라보며 눈을 맞추는 따뜻한 순간이었어요."},
-      {time:"05:30",event:"💛 마음을 나눈 순간",detail:"장난감이 부서지자 아이가 속상해했는데, 부모님이 바로 다가가 등을 다독여 주셨어요."},
-      {time:"08:10",event:"🎉 함께 신난 순간",detail:"자동차 놀이에서 부모님이 소리를 따라 하자 아이가 더욱 신이 나서 웃음이 넘쳤어요."}
-    ],
-    tips:[
-      {title:"아이 행동을 말로 중계해 보세요",text:"아이가 노는 걸 스포츠 중계하듯 말해주세요. '우와, 초록 블록을 맨 위에 올렸네!' 이렇게요. 아이는 자신이 하는 일이 중요하다고 느끼게 되어 자신감이 쑥쑥 자란답니다."},
-      {title:"똑같이 따라하기 놀이를 해보세요",text:"아이가 자동차를 밀면 부모님도 자동차를 밀어보세요. 아이가 '짝짝' 하면 부모님도 '짝짝' 해주세요. 아이는 '내가 대장이구나!'하고 느끼게 된답니다."},
-      {title:"힘들 때 마음부터 읽어주세요",text:"아이가 속상해할 때 해결책보다 마음을 먼저 읽어주세요. '그게 잘 안 됐구나, 화가 났지?' 한 마디가 아이를 훨씬 빨리 안정시켜 준답니다."},
-      {title:"하루 10분, 아이가 완전히 대장인 시간",text:"매일 10분만이라도 아이가 놀이를 완전히 이끌도록 해주세요. 질문이나 지시 없이, 아이가 하자는 대로 따라가 보세요. 아이의 자신감이 쑥쑥 자란답니다."}
-    ],
-    closingMessage:"오늘 아이와 함께 시간을 내주신 것만으로도 정말 훌륭하세요 💛 완벽한 부모보다, 함께 있어주는 부모가 아이에게는 가장 큰 선물이에요."
-  };
+
+// ── 메인 분석 흐름 ──
+async function startAnalysis() {
+  if (!videoFile) { alert('먼저 영상을 올려주세요 😊'); return; }
+
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('progressCard').classList.add('visible');
+  document.getElementById('resultsWrap').classList.remove('visible');
+
+  const steps = ['ps1', 'ps2', 'ps3', 'ps4'];
+  const setStep = i => steps.forEach((s, j) => {
+    document.getElementById(s).className = j < i ? 'p-step done' : j === i ? 'p-step active' : 'p-step';
+  });
+
+  let observation = '';
+  let data = null;
+
+  try {
+    // STEP 1: Gemini 영상 업로드 + 분석
+    setStep(0);
+    document.getElementById('progressFill').style.width = '5%';
+    document.getElementById('progressMsg').textContent = '🎬 Gemini에게 영상을 전달하고 있어요...';
+
+    const uploadTick = (async () => {
+      for (const p of [10, 18, 25, 32]) { await delay(1500); document.getElementById('progressFill').style.width = p + '%'; }
+    })();
+
+    observation = await analyzeVideoWithGemini(videoFile);
+    await uploadTick;
+
+    document.getElementById('progressFill').style.width = '40%';
+    setStep(1);
+    document.getElementById('progressMsg').textContent = '👁️ Gemini가 영상 전체를 살펴보고 있어요...';
+    await delay(400);
+
+    // STEP 2: Claude 리포트 작성
+    setStep(2);
+    document.getElementById('progressMsg').textContent = '✍️ Claude가 따뜻한 분석 리포트를 쓰고 있어요...';
+
+    const reportTick = (async () => {
+      for (const p of [50, 60, 70, 80, 88]) { await delay(700); document.getElementById('progressFill').style.width = p + '%'; }
+    })();
+
+    data = await generateReportWithClaude(observation);
+    await reportTick;
+
+    // STEP 3: 완료
+    setStep(3);
+    document.getElementById('progressMsg').textContent = '🎉 분석이 완료됐어요!';
+    document.getElementById('progressFill').style.width = '100%';
+    steps.forEach(s => document.getElementById(s).className = 'p-step done');
+    await delay(400);
+
+  } catch(e) {
+    console.error('[분석 오류]', e);
+    document.getElementById('progressCard').classList.remove('visible');
+    document.getElementById('analyzeBtn').disabled = false;
+    alert('분석 중 오류가 발생했어요 😔\n\n' + e.message);
+    return;
+  }
+
+  renderResults(data);
+  document.getElementById('progressCard').classList.remove('visible');
+  document.getElementById('resultsWrap').classList.add('visible');
+  document.getElementById('analyzeBtn').disabled = false;
+  document.getElementById('resultsWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function renderResults(d) {

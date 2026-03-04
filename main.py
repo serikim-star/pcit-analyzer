@@ -2,7 +2,6 @@ import os
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -15,23 +14,22 @@ app.add_middleware(
 )
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+GEMINI_API_KEY    = os.environ.get("GEMINI_API_KEY", "")
 
-# HTML 파일 서빙
+# ── HTML 서빙 ──
 @app.get("/", response_class=HTMLResponse)
 async def index():
     with open("index.html", "r", encoding="utf-8") as f:
         return f.read()
 
-# Claude API 프록시 — API 키를 서버에서 주입
+# ── Claude 프록시 ──
 @app.post("/api/analyze")
 async def analyze(request: Request):
     if not ANTHROPIC_API_KEY:
-        return JSONResponse({"error": "서버 API 키가 설정되지 않았어요"}, status_code=500)
-
+        return JSONResponse({"error": "서버에 ANTHROPIC_API_KEY가 설정되지 않았어요"}, status_code=500)
     body = await request.json()
-
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        response = await client.post(
+    async with httpx.AsyncClient(timeout=180.0) as client:
+        res = await client.post(
             "https://api.anthropic.com/v1/messages",
             headers={
                 "Content-Type": "application/json",
@@ -40,5 +38,73 @@ async def analyze(request: Request):
             },
             json=body,
         )
+    return JSONResponse(content=res.json(), status_code=res.status_code)
 
-    return JSONResponse(content=response.json(), status_code=response.status_code)
+# ── Gemini 업로드 시작 ──
+@app.post("/api/gemini/upload/start")
+async def gemini_upload_start(request: Request):
+    if not GEMINI_API_KEY:
+        return JSONResponse({"error": "서버에 GEMINI_API_KEY가 설정되지 않았어요"}, status_code=500)
+    body = await request.body()
+    headers_in = dict(request.headers)
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        res = await client.post(
+            f"https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=resumable&key={GEMINI_API_KEY}",
+            headers={
+                "Content-Type": "application/json",
+                "X-Goog-Upload-Protocol": "resumable",
+                "X-Goog-Upload-Command": "start",
+                "X-Goog-Upload-Header-Content-Length": headers_in.get("x-upload-content-length", "0"),
+                "X-Goog-Upload-Header-Content-Type": headers_in.get("x-upload-content-type", "video/mp4"),
+            },
+            content=body,
+        )
+    upload_url = res.headers.get("x-goog-upload-url", "")
+    return JSONResponse({"uploadUrl": upload_url, "status": res.status_code})
+
+# ── Gemini 파일 업로드 ──
+@app.post("/api/gemini/upload/data")
+async def gemini_upload_data(request: Request):
+    if not GEMINI_API_KEY:
+        return JSONResponse({"error": "서버에 GEMINI_API_KEY가 설정되지 않았어요"}, status_code=500)
+    headers_in = dict(request.headers)
+    upload_url = headers_in.get("x-upload-url", "")
+    if not upload_url:
+        return JSONResponse({"error": "x-upload-url 헤더가 없어요"}, status_code=400)
+    body = await request.body()
+    async with httpx.AsyncClient(timeout=300.0) as client:
+        res = await client.post(
+            upload_url,
+            headers={
+                "Content-Length": str(len(body)),
+                "X-Goog-Upload-Offset": "0",
+                "X-Goog-Upload-Command": "upload, finalize",
+            },
+            content=body,
+        )
+    return JSONResponse(content=res.json(), status_code=res.status_code)
+
+# ── Gemini 파일 상태 조회 ──
+@app.get("/api/gemini/files/{file_name}")
+async def gemini_file_status(file_name: str):
+    if not GEMINI_API_KEY:
+        return JSONResponse({"error": "서버에 GEMINI_API_KEY가 설정되지 않았어요"}, status_code=500)
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        res = await client.get(
+            f"https://generativelanguage.googleapis.com/v1beta/files/{file_name}?key={GEMINI_API_KEY}"
+        )
+    return JSONResponse(content=res.json(), status_code=res.status_code)
+
+# ── Gemini 영상 분석 ──
+@app.post("/api/gemini/analyze")
+async def gemini_analyze(request: Request):
+    if not GEMINI_API_KEY:
+        return JSONResponse({"error": "서버에 GEMINI_API_KEY가 설정되지 않았어요"}, status_code=500)
+    body = await request.json()
+    async with httpx.AsyncClient(timeout=180.0) as client:
+        res = await client.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={GEMINI_API_KEY}",
+            headers={"Content-Type": "application/json"},
+            json=body,
+        )
+    return JSONResponse(content=res.json(), status_code=res.status_code)
