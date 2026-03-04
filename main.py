@@ -95,15 +95,57 @@ async def gemini_file_status(file_name: str):
         )
     return JSONResponse(content=res.json(), status_code=res.status_code)
 
+# ── 사용 가능한 Gemini 모델 목록 조회 ──
+@app.get("/api/gemini/models")
+async def gemini_models():
+    if not GEMINI_API_KEY:
+        return JSONResponse({"error": "GEMINI_API_KEY 없음"}, status_code=500)
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        res = await client.get(
+            f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}"
+        )
+    return JSONResponse(content=res.json(), status_code=res.status_code)
+
 # ── Gemini 영상 분석 ──
+GEMINI_VIDEO_MODELS = [
+    "gemini-1.5-pro-002",
+    "gemini-1.5-pro-001",
+    "gemini-1.5-flash-002",
+    "gemini-1.5-flash-001",
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-pro-latest",
+]
+
 @app.post("/api/gemini/analyze")
 async def gemini_analyze(request: Request):
     if not GEMINI_API_KEY:
         return JSONResponse({"error": "서버에 GEMINI_API_KEY가 설정되지 않았어요"}, status_code=500)
     body = await request.json()
+
+    # 사용 가능한 모델을 순서대로 시도
     async with httpx.AsyncClient(timeout=180.0) as client:
+        # 먼저 모델 목록 조회
+        models_res = await client.get(
+            f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}"
+        )
+        available = set()
+        if models_res.status_code == 200:
+            models_data = models_res.json()
+            for m in models_data.get("models", []):
+                name = m.get("name", "").replace("models/", "")
+                if "generateContent" in m.get("supportedGenerationMethods", []):
+                    available.add(name)
+
+        # 목록에서 첫 번째 사용 가능한 모델 선택
+        chosen = next((m for m in GEMINI_VIDEO_MODELS if m in available), None)
+        if not chosen:
+            # 목록 조회 실패 시 기본값
+            chosen = "gemini-1.5-flash-002"
+
+        print(f"[Gemini] 선택된 모델: {chosen}, 사용 가능: {available}")
+
         res = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}",
+            f"https://generativelanguage.googleapis.com/v1beta/models/{chosen}:generateContent?key={GEMINI_API_KEY}",
             headers={"Content-Type": "application/json"},
             json=body,
         )
