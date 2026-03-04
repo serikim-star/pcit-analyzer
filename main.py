@@ -103,7 +103,7 @@ async def gemini_analyze(request: Request):
     body = await request.json()
     async with httpx.AsyncClient(timeout=180.0) as client:
         res = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}",
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}",
             headers={"Content-Type": "application/json"},
             json=body,
         )
