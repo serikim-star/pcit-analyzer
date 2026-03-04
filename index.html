@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>우리 아이 놀이 대화 분석기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #FFF8F0;
+  --card: #FFFFFF;
+  --peach: #FF9A62;
+  --peach-light: #FFD8BC;
+  --peach-soft: #FFF2E8;
+  --green: #6EAF86;
+  --green-light: #B8DEC8;
+  --green-soft: #EBF6F0;
+  --blue: #7AAECA;
+  --blue-soft: #E8F3FA;
+  --yellow: #F2C140;
+  --yellow-soft: #FDF5DA;
+  --text: #3A3228;
+  --text-mid: #6B5E52;
+  --text-soft: #A89A8E;
+  --border: #EDE4DC;
+  --shadow: 0 4px 24px rgba(120,80,40,0.07);
+  --shadow-hover: 0 8px 32px rgba(120,80,40,0.13);
+  --radius: 20px;
+  --radius-sm: 14px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Noto Sans KR',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+/* HEADER */
+header { background:#fff; border-bottom:1px solid var(--border); padding:0 32px; height:64px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:0 2px 12px rgba(120,80,40,0.05); }
+.logo { display:flex; align-items:center; gap:10px; }
+.logo-icon { width:36px; height:36px; background:linear-gradient(135deg,var(--peach),#FF6B2B); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; }
+.logo-text { font-family:'Gowun Dodum',sans-serif; font-size:18px; color:var(--text); }
+.logo-text span { color:var(--peach); }
+.header-right { font-size:12px; color:var(--text-soft); background:var(--peach-soft); border:1px solid var(--peach-light); padding:5px 14px; border-radius:20px; }
+
+/* HERO */
+.hero { background:linear-gradient(160deg,#FFF3E8 0%,#FFFAF5 50%,#EEFAF4 100%); padding:64px 32px 56px; text-align:center; position:relative; overflow:hidden; }
+.hero-deco { position:absolute; font-size:110px; opacity:.055; pointer-events:none; user-select:none; }
+.hero-deco-1 { top:-20px; left:-10px; transform:rotate(-18deg); }
+.hero-deco-2 { bottom:-30px; right:-10px; transform:rotate(14deg); }
+.hero-emoji { font-size:56px; margin-bottom:14px; display:block; animation:float 3s ease-in-out infinite; }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+.hero h1 { font-family:'Gowun Dodum',sans-serif; font-size:clamp(24px,4vw,38px); color:var(--text); line-height:1.45; margin-bottom:12px; }
+.hero h1 strong { color:var(--peach); }
+.hero-sub { font-size:15px; font-weight:300; color:var(--text-mid); line-height:1.8; max-width:480px; margin:0 auto 28px; }
+.hero-chips { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; }
+.chip { display:inline-flex; align-items:center; gap:6px; background:#fff; border:1px solid var(--border); color:var(--text-mid); font-size:13px; padding:7px 16px; border-radius:20px; box-shadow:0 2px 8px rgba(120,80,40,0.05); }
+
+/* MAIN */
+.main { max-width:820px; margin:0 auto; padding:48px 24px 80px; }
+
+/* STEP CARD */
+.step-card { background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); padding:32px; margin-bottom:20px; border:1px solid var(--border); transition:box-shadow .2s; }
+.step-card:hover { box-shadow:var(--shadow-hover); }
+.step-label { display:flex; align-items:center; gap:10px; margin-bottom:20px; }
+.step-badge { width:28px; height:28px; border-radius:50%; background:linear-gradient(135deg,var(--peach),#FF6B2B); color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.step-title { font-family:'Gowun Dodum',sans-serif; font-size:18px; color:var(--text); }
+.step-desc { font-size:13px; color:var(--text-soft); margin-top:2px; }
+
+/* UPLOAD */
+.upload-zone { border:2px dashed var(--peach-light); border-radius:var(--radius-sm); background:var(--peach-soft); padding:48px 24px; text-align:center; cursor:pointer; transition:all .25s; }
+.upload-zone:hover,.upload-zone.drag-over { border-color:var(--peach); background:#FFE8D4; transform:translateY(-2px); }
+.upload-zone-icon { font-size:48px; margin-bottom:12px; }
+.upload-zone h3 { font-family:'Gowun Dodum',sans-serif; font-size:17px; color:var(--text); margin-bottom:8px; }
+.upload-zone p { font-size:13px; color:var(--text-soft); line-height:1.7; }
+.upload-btn-row { margin-top:16px; }
+.btn-upload { background:var(--peach); color:#fff; border:none; font-family:'Noto Sans KR',sans-serif; font-size:14px; font-weight:500; padding:10px 28px; border-radius:50px; cursor:pointer; transition:all .2s; box-shadow:0 4px 14px rgba(255,154,98,0.4); }
+.btn-upload:hover { background:#FF7A3A; transform:translateY(-1px); }
+#videoInput { display:none; }
+
+/* VIDEO PREVIEW */
+.video-preview { display:none; margin-top:16px; }
+.video-preview.visible { display:block; }
+.video-wrap { border-radius:var(--radius-sm); overflow:hidden; background:#111; margin-bottom:10px; position:relative; }
+.video-wrap video { width:100%; max-height:340px; display:block; }
+/* Loading overlay on top of video */
+.video-loading-overlay { position:absolute; inset:0; background:rgba(0,0,0,0.58); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; border-radius:var(--radius-sm); transition:opacity .4s; }
+.video-loading-overlay.hidden { opacity:0; pointer-events:none; }
+.vlo-spinner { width:38px; height:38px; border:3px solid rgba(255,255,255,0.2); border-top-color:#fff; border-radius:50%; animation:vspin .8s linear infinite; }
+@keyframes vspin { to { transform:rotate(360deg); } }
+.vlo-text { font-size:13px; color:#fff; font-weight:500; letter-spacing:.3px; }
+.vlo-subtext { font-size:11px; color:rgba(255,255,255,.6); }
+.vlo-bar-wrap { width:140px; height:4px; background:rgba(255,255,255,.2); border-radius:4px; overflow:hidden; }
+.vlo-bar { height:100%; background:var(--peach); border-radius:4px; width:0%; transition:width .4s; }
+/* Status bar below video */
+.video-status-bar { display:flex; align-items:center; gap:8px; padding:9px 14px; border-radius:var(--radius-sm); margin-bottom:10px; font-size:13px; font-weight:500; transition:all .3s; }
+.vsb-loading    { background:#FFF6F0; border:1px solid var(--peach-light); color:#C46A30; }
+.vsb-extracting { background:var(--blue-soft); border:1px solid #B0D4E8; color:#2A6080; }
+.vsb-ready      { background:var(--green-soft); border:1px solid var(--green-light); color:#2A7A4A; }
+.vsb-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.vsb-loading    .vsb-dot { background:var(--peach); animation:vspulse 1s ease-in-out infinite; }
+.vsb-extracting .vsb-dot { background:var(--blue); animation:vspulse .7s ease-in-out infinite; }
+.vsb-ready      .vsb-dot { background:var(--green); }
+@keyframes vspulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+/* Placeholder shimmer for frame strip while extracting */
+.frame-placeholder { background:var(--border); border:2px solid var(--border); position:relative; overflow:hidden; }
+.frame-ph-inner { position:absolute; inset:0; background:linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%); animation:shimmer 1.4s infinite; }
+@keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+.video-info-bar { display:flex; align-items:center; justify-content:space-between; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px; }
+.video-info-left { display:flex; align-items:center; gap:10px; }
+.video-name { font-size:13px; font-weight:500; color:var(--text); }
+.video-size { font-size:12px; color:var(--text-soft); }
+.btn-remove { background:none; border:1px solid var(--border); color:var(--text-soft); font-family:'Noto Sans KR',sans-serif; font-size:12px; padding:5px 14px; border-radius:20px; cursor:pointer; transition:all .2s; }
+.btn-remove:hover { border-color:#e57373; color:#e57373; }
+
+/* SETTINGS */
+.setting-row { margin-bottom:20px; }
+.setting-row:last-child { margin-bottom:0; }
+.setting-row-label { font-size:13px; font-weight:600; color:var(--text-mid); margin-bottom:10px; }
+.toggle-group { display:flex; flex-wrap:wrap; gap:8px; }
+.toggle-btn { background:var(--bg); border:1.5px solid var(--border); color:var(--text-mid); font-size:13px; font-family:'Noto Sans KR',sans-serif; padding:8px 18px; border-radius:50px; cursor:pointer; transition:all .2s; line-height:1; }
+.toggle-btn:hover:not(.active) { border-color:var(--peach); color:var(--peach); background:var(--peach-soft); }
+.toggle-btn.active { background:var(--peach); border-color:var(--peach); color:#fff; font-weight:500; box-shadow:0 3px 10px rgba(255,154,98,0.4); }
+
+/* ANALYZE */
+.analyze-wrap { text-align:center; padding:8px 0; }
+.btn-analyze { background:linear-gradient(135deg,var(--green),#3D8E5A); color:#fff; border:none; font-family:'Gowun Dodum',sans-serif; font-size:18px; padding:18px 52px; border-radius:50px; cursor:pointer; transition:all .3s; box-shadow:0 6px 24px rgba(110,175,134,0.4); display:inline-flex; align-items:center; gap:10px; }
+.btn-analyze:hover:not(:disabled) { transform:translateY(-3px); box-shadow:0 10px 32px rgba(110,175,134,0.5); }
+.btn-analyze:disabled { opacity:.45; cursor:not-allowed; transform:none; }
+.analyze-note { font-size:12px; color:var(--text-soft); margin-top:12px; }
+
+/* PROGRESS */
+.progress-card { background:#fff; border-radius:var(--radius); border:1px solid var(--border); box-shadow:var(--shadow); padding:36px 32px; margin-bottom:20px; display:none; text-align:center; }
+.progress-card.visible { display:block; }
+.progress-emoji { font-size:44px; margin-bottom:12px; display:block; animation:wobble 2s ease-in-out infinite; }
+@keyframes wobble { 0%,100%{transform:rotate(-5deg) scale(1)} 50%{transform:rotate(5deg) scale(1.1)} }
+.progress-title { font-family:'Gowun Dodum',sans-serif; font-size:20px; color:var(--text); margin-bottom:6px; }
+.progress-msg { font-size:13px; color:var(--text-soft); margin-bottom:24px; min-height:20px; }
+.progress-bar { height:8px; background:var(--border); border-radius:8px; overflow:hidden; margin-bottom:20px; }
+.progress-fill { height:100%; background:linear-gradient(90deg,var(--peach),var(--green)); border-radius:8px; transition:width .6s ease; width:0%; }
+.progress-steps { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; }
+.p-step { font-size:12px; color:var(--text-soft); padding:4px 12px; border-radius:20px; background:var(--bg); border:1px solid var(--border); transition:all .3s; }
+.p-step.active { background:var(--peach-soft); border-color:var(--peach); color:var(--peach); font-weight:500; }
+.p-step.done { background:var(--green-soft); border-color:var(--green-light); color:var(--green); font-weight:500; }
+
+/* RESULTS */
+.results-wrap { display:none; animation:fadeUp .5s ease; }
+.results-wrap.visible { display:block; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+/* Feeling card */
+.feeling-card { background:linear-gradient(135deg,#FFF4EC,#EDFAF4); border:1px solid var(--peach-light); border-radius:var(--radius); padding:36px 32px; margin-bottom:20px; text-align:center; position:relative; overflow:hidden; }
+.feeling-card::after { content:'🌱'; position:absolute; font-size:100px; opacity:.055; right:-10px; bottom:-20px; pointer-events:none; }
+.feeling-emoji-big { font-size:52px; display:block; margin-bottom:10px; }
+.feeling-title { font-family:'Gowun Dodum',sans-serif; font-size:22px; color:var(--text); margin-bottom:10px; }
+.feeling-summary { font-size:15px; font-weight:300; color:var(--text-mid); line-height:1.85; max-width:540px; margin:0 auto 20px; }
+.score-pills { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
+.score-pill { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:50px; font-size:13px; font-weight:400; background:#fff; border:1px solid var(--border); box-shadow:0 2px 8px rgba(120,80,40,0.06); color:var(--text-mid); }
+.pill-num { font-family:'Gowun Dodum',sans-serif; font-size:17px; color:var(--text); font-weight:400; }
+
+/* Section head */
+.section-head { display:flex; align-items:center; gap:10px; margin:30px 0 14px; }
+.sh-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+.sh-peach { background:var(--peach-soft); }
+.sh-green { background:var(--green-soft); }
+.sh-blue { background:var(--blue-soft); }
+.sh-yellow { background:var(--yellow-soft); }
+.section-head h3 { font-family:'Gowun Dodum',sans-serif; font-size:17px; color:var(--text); }
+.section-head p { font-size:12px; color:var(--text-soft); margin-top:1px; }
+
+/* Analysis grid */
+.analysis-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media(max-width:600px){ .analysis-grid{grid-template-columns:1fr;} }
+.a-card { background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:22px; box-shadow:0 2px 12px rgba(120,80,40,0.05); transition:box-shadow .2s; }
+.a-card:hover { box-shadow:var(--shadow-hover); }
+.a-card-top { display:flex; align-items:flex-start; gap:10px; margin-bottom:12px; }
+.a-card-emoji { font-size:24px; flex-shrink:0; margin-top:1px; }
+.a-card-title { font-size:14px; font-weight:600; color:var(--text); }
+.a-card-sub { font-size:11px; color:var(--text-soft); margin-top:2px; }
+.a-card-meter { height:5px; background:var(--border); border-radius:5px; margin-bottom:12px; overflow:hidden; }
+.a-card-fill { height:100%; border-radius:5px; transition:width 1s ease; }
+.fill-peach { background:linear-gradient(90deg,var(--peach-light),var(--peach)); }
+.fill-yellow { background:linear-gradient(90deg,#F8E5A0,var(--yellow)); }
+.fill-green { background:linear-gradient(90deg,var(--green-light),var(--green)); }
+.fill-blue { background:linear-gradient(90deg,#B8D8EC,var(--blue)); }
+.a-card-text { font-size:13px; font-weight:300; color:var(--text-mid); line-height:1.8; margin-bottom:12px; }
+.tag-row { display:flex; flex-wrap:wrap; gap:5px; }
+.tag { font-size:11px; font-weight:500; padding:3px 10px; border-radius:20px; }
+.tag-good { background:var(--green-soft); color:#2E7A4E; }
+.tag-warn { background:#FFF3E0; color:#C47A20; }
+.tag-info { background:var(--blue-soft); color:#2E6A8A; }
+
+/* Checklist */
+.checklist-card { background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; box-shadow:0 2px 12px rgba(120,80,40,0.05); }
+.check-item { display:flex; align-items:flex-start; gap:14px; padding:16px 20px; border-bottom:1px solid var(--border); transition:background .15s; }
+.check-item:last-child { border-bottom:none; }
+.check-item:hover { background:var(--bg); }
+.check-status { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; margin-top:1px; }
+.cs-yes { background:var(--green-soft); color:var(--green); }
+.cs-partial { background:var(--yellow-soft); color:#A07800; }
+.cs-no { background:#FEF0F0; color:#D95C5C; }
+.check-label { font-size:14px; font-weight:500; color:var(--text); margin-bottom:3px; }
+.check-desc { font-size:12px; font-weight:300; color:var(--text-soft); line-height:1.6; }
+
+/* Moments */
+.moments-card { background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); box-shadow:0 2px 12px rgba(120,80,40,0.05); }
+.moment-item { display:flex; gap:14px; padding:16px 20px; border-bottom:1px solid var(--border); align-items:flex-start; transition:background .15s; }
+.moment-item:last-child { border-bottom:none; }
+.moment-item:hover { background:var(--bg); }
+.moment-time { background:var(--peach-soft); border:1px solid var(--peach-light); color:var(--peach); font-size:12px; font-weight:600; padding:4px 10px; border-radius:20px; white-space:nowrap; flex-shrink:0; margin-top:1px; }
+.moment-event { font-size:14px; font-weight:500; color:var(--text); margin-bottom:3px; }
+.moment-detail { font-size:12px; font-weight:300; color:var(--text-soft); line-height:1.6; }
+
+/* Tips */
+.tips-card { background:linear-gradient(135deg,var(--green-soft),#F2FBF6); border:1px solid var(--green-light); border-radius:var(--radius-sm); overflow:hidden; }
+.tip-item { display:flex; gap:14px; padding:18px 20px; border-bottom:1px solid var(--green-light); align-items:flex-start; transition:background .15s; }
+.tip-item:last-child { border-bottom:none; }
+.tip-item:hover { background:rgba(255,255,255,.65); }
+.tip-num { width:26px; height:26px; background:var(--green); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; margin-top:2px; }
+.tip-text { font-size:13px; font-weight:400; color:var(--text-mid); line-height:1.85; }
+.tip-text strong { display:block; color:var(--text); font-weight:600; margin-bottom:3px; font-size:14px; }
+
+/* Close note */
+.close-note { background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:28px 24px; margin-top:14px; text-align:center; }
+.close-note-emoji { font-size:34px; margin-bottom:8px; }
+.close-note-text { font-size:15px; font-weight:300; color:var(--text-mid); line-height:1.85; }
+.close-note-text strong { font-weight:600; color:var(--text); }
+
+/* FRAME STRIP */
+.frame-strip-wrap { margin-top:14px; display:none; }
+.frame-strip-wrap.visible { display:block; }
+.frame-strip-label { font-size:12px; font-weight:600; color:var(--text-soft); letter-spacing:.5px; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+.frame-strip { display:flex; gap:6px; overflow-x:auto; padding-bottom:6px; }
+.frame-strip::-webkit-scrollbar { height:4px; }
+.frame-strip::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+.frame-thumb { width:80px; height:56px; object-fit:cover; border-radius:8px; border:2px solid var(--border); flex-shrink:0; transition:border-color .2s; cursor:pointer; }
+.frame-thumb:hover { border-color:var(--peach); }
+.frame-thumb.extracting { background:var(--peach-soft); animation:shimmer 1.2s ease infinite; }
+@keyframes shimmer { 0%,100%{opacity:.5} 50%{opacity:1} }
+
+/* FOOTER */
+footer { background:#fff; border-top:1px solid var(--border); padding:28px 32px; text-align:center; }
+.footer-text { font-size:12px; color:var(--text-soft); line-height:1.8; }
+.footer-text a { color:var(--peach); text-decoration:none; }
+
+@media(max-width:600px){ .main{padding:32px 16px 60px;} header{padding:0 16px;} .hero{padding:48px 20px 40px;} .step-card{padding:24px 18px;} }
+  #apiKeyInput:focus { border-color: var(--peach) !important; box-shadow: 0 0 0 3px rgba(255,154,98,0.15); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🧸</div>
+    <div class="logo-text">함께 놀이 <span>분석기</span></div>
+  </div>
+  <div class="header-right">✨ AI 놀이 분석 도구</div>
+</header>
+
+<div class="hero">
+  <div class="hero-deco hero-deco-1">🧩</div>
+  <div class="hero-deco hero-deco-2">🎨</div>
+  <span class="hero-emoji">👨‍👧‍👦</span>
+  <h1>아이와 함께하는 놀이,<br><strong>얼마나 잘 통하고 있을까요?</strong></h1>
+  <p class="hero-sub">
+    5~10분짜리 놀이 영상을 올려주시면<br>
+    AI가 부모님과 아이의 소통 방식을 꼼꼼히 살펴보고<br>
+    <strong>쉽고 따뜻하게</strong> 알려드려요 😊
+  </p>
+  <div class="hero-chips">
+    <span class="chip">🎬 5~10분 영상</span>
+    <span class="chip">🤝 소통 방식 분석</span>
+    <span class="chip">💬 칭찬 패턴 확인</span>
+    <span class="chip">🌱 성장 팁 제공</span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- STEP 1 -->
+  <div class="step-card">
+    <div class="step-label">
+      <div class="step-badge">1</div>
+      <div>
+        <div class="step-title">영상을 올려주세요</div>
+        <div class="step-desc">아이와 자유롭게 노는 영상이면 어떤 것이든 좋아요</div>
+      </div>
+    </div>
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('videoInput').click()">
+      <div class="upload-zone-icon">📹</div>
+      <h3>영상을 끌어다 놓거나 클릭해서 선택하세요</h3>
+      <p>MP4, MOV, AVI 형식 · 최대 500MB<br>얼굴과 목소리가 잘 담긴 영상일수록 더 정확하게 분석할 수 있어요</p>
+      <div class="upload-btn-row">
+        <button class="btn-upload" onclick="event.stopPropagation()">📂 파일 선택하기</button>
+      </div>
+    </div>
+    <input type="file" id="videoInput" accept="video/*">
+    <div class="video-preview" id="videoPreview">
+      <!-- Video player + loading overlay -->
+      <div class="video-wrap">
+        <video id="videoPlayer" controls></video>
+        <div class="video-loading-overlay" id="videoLoadingOverlay">
+          <div class="vlo-spinner"></div>
+          <div class="vlo-text" id="vloText">영상 읽는 중...</div>
+          <div class="vlo-subtext" id="vloSubText">잠깐만 기다려 주세요</div>
+          <div class="vlo-bar-wrap"><div class="vlo-bar" id="vloBar"></div></div>
+        </div>
+      </div>
+      <!-- Ready / loading status bar -->
+      <div class="video-status-bar vsb-loading" id="videoStatusBar">
+        <div class="vsb-dot"></div>
+        <span id="videoStatusText">영상을 불러오는 중이에요...</span>
+      </div>
+      <!-- File info + remove -->
+      <div class="video-info-bar">
+        <div class="video-info-left">
+          <span style="font-size:22px">🎬</span>
+          <div>
+            <div class="video-name" id="videoName">—</div>
+            <div class="video-size" id="videoSize">—</div>
+          </div>
+        </div>
+        <button class="btn-remove" onclick="removeVideo()">✕ 다시 선택</button>
+      </div>
+      <!-- Frame strip -->
+      <div class="frame-strip-wrap" id="frameStripWrap">
+        <div class="frame-strip-label">🎞️ 장면 미리보기 <span id="frameCount" style="color:var(--peach);font-weight:700;margin-left:4px"></span></div>
+        <div class="frame-strip" id="frameStrip"></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- STEP 2 -->
+  <div class="step-card">
+    <div class="step-label">
+      <div class="step-badge">2</div>
+      <div>
+        <div class="step-title">아이에 대해 알려주세요</div>
+        <div class="step-desc">더 정확한 분석을 위해 몇 가지만 선택해 주세요</div>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-row-label">🎂 아이 나이</div>
+      <div class="toggle-group" id="ageGroup">
+        <button class="toggle-btn" onclick="setSel(this,'ageGroup')">2~3세</button>
+        <button class="toggle-btn active" onclick="setSel(this,'ageGroup')">4~5세</button>
+        <button class="toggle-btn" onclick="setSel(this,'ageGroup')">6~7세</button>
+        <button class="toggle-btn" onclick="setSel(this,'ageGroup')">8세 이상</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-row-label">🔍 특히 궁금한 점</div>
+      <div class="toggle-group" id="focusGroup">
+        <button class="toggle-btn active" onclick="setSel(this,'focusGroup')">전반적으로 다 알고 싶어요</button>
+        <button class="toggle-btn" onclick="setSel(this,'focusGroup')">칭찬을 잘 하고 있는지 궁금해요</button>
+        <button class="toggle-btn" onclick="setSel(this,'focusGroup')">감정이 잘 통하는지 궁금해요</button>
+        <button class="toggle-btn" onclick="setSel(this,'focusGroup')">아이 말을 잘 들어주는지 궁금해요</button>
+      </div>
+    </div>
+    <div class="setting-row" style="margin-bottom:0">
+      <div class="setting-row-label">😌 요즘 아이 상태</div>
+      <div class="toggle-group" id="moodGroup">
+        <button class="toggle-btn active" onclick="setSel(this,'moodGroup')">평범해요</button>
+        <button class="toggle-btn" onclick="setSel(this,'moodGroup')">에너지가 넘쳐요</button>
+        <button class="toggle-btn" onclick="setSel(this,'moodGroup')">요즘 예민해요</button>
+        <button class="toggle-btn" onclick="setSel(this,'moodGroup')">내성적인 편이에요</button>
+      </div>
+    </div>
+  </div>
+
+    <!-- STEP 3 -->
+  <div class="step-card" style="text-align:center">
+    <div class="step-label" style="justify-content:center; margin-bottom:18px">
+      <div class="step-badge">3</div>
+      <div>
+        <div class="step-title">분석 시작하기</div>
+        <div class="step-desc">준비가 되셨으면 아래 버튼을 눌러주세요</div>
+      </div>
+    </div>
+    <div class="analyze-wrap">
+      <button class="btn-analyze" id="analyzeBtn" onclick="startAnalysis()">
+        🔍 우리 놀이 분석해 보기
+      </button>
+      <div class="analyze-note">⏱ 보통 30초~1분 내로 결과가 나와요</div>
+    </div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="progress-card" id="progressCard">
+    <span class="progress-emoji">🔬</span>
+    <div class="progress-title">열심히 분석 중이에요!</div>
+    <div class="progress-msg" id="progressMsg">영상을 살펴보고 있어요...</div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-steps">
+      <div class="p-step" id="ps1">📸 프레임 추출</div>
+      <div class="p-step" id="ps2">👁️ 장면 분석</div>
+      <div class="p-step" id="ps3">😊 감정 살펴보기</div>
+      <div class="p-step" id="ps4">✍️ 리포트 작성</div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-wrap" id="resultsWrap">
+
+    <div class="feeling-card">
+      <span class="feeling-emoji-big" id="feelingEmoji">🌟</span>
+      <div class="feeling-title" id="feelingTitle">분석 결과</div>
+      <div class="feeling-summary" id="feelingSummary">결과를 불러오는 중...</div>
+      <div class="score-pills" id="scorePills"></div>
+    </div>
+
+    <div class="section-head">
+      <div class="sh-icon sh-peach">📊</div>
+      <div>
+        <h3>4가지 영역별 분석</h3>
+        <p>놀이 상호작용의 핵심 요소를 살펴봤어요</p>
+      </div>
+    </div>
+    <div class="analysis-grid" id="analysisGrid"></div>
+
+    <div class="section-head">
+      <div class="sh-icon sh-green">✅</div>
+      <div>
+        <h3>소통 습관 체크</h3>
+        <p>부모님의 놀이 소통 방식에서 발견한 것들이에요</p>
+      </div>
+    </div>
+    <div class="checklist-card" id="checklistCard"></div>
+
+    <div class="section-head">
+      <div class="sh-icon sh-yellow">⏱</div>
+      <div>
+        <h3>영상 속 따뜻한 순간들</h3>
+        <p>분석 중 발견한 인상적인 장면들이에요</p>
+      </div>
+    </div>
+    <div class="moments-card" id="momentsCard"></div>
+
+    <div class="section-head">
+      <div class="sh-icon sh-green">💡</div>
+      <div>
+        <h3>오늘의 성장 팁</h3>
+        <p>더 즐거운 놀이를 위해 이런 것들을 시도해 보세요!</p>
+      </div>
+    </div>
+    <div class="tips-card" id="tipsCard"></div>
+
+    <div class="close-note">
+      <div class="close-note-emoji">💛</div>
+      <div class="close-note-text" id="closeNoteText">오늘도 아이와 함께 시간을 보내주셨군요. 그것만으로도 충분히 <strong>훌륭한 부모님</strong>이에요!</div>
+    </div>
+
+    <div style="text-align:center;margin-top:24px">
+      <button class="btn-analyze" onclick="resetAll()" style="background:linear-gradient(135deg,var(--peach),#FF6B2B);box-shadow:0 6px 24px rgba(255,154,98,0.4)">
+        🔄 다시 분석하기
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <div class="footer-text">
+    🔒 업로드된 영상은 분석 후 즉시 삭제되며, 어떠한 형태로도 저장되지 않아요.<br>
+    본 서비스는 전문 심리 치료를 대체하지 않으며 참고 용도로만 활용해 주세요.<br>
+    도움이 필요하시면 <a href="#">전문 상담사에게 문의</a>해 보세요.
+  </div>
+</footer>
+
+<script>
+// ── STATE ──
+let videoFile = null;
+let extractedFrames = [];
+
+let selectedAge = '4~5세', selectedFocus = '전반적으로 다 알고 싶어요', selectedMood = '평범해요';
+
+// ── UPLOAD ──
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0]; if (f) handleFile(f);
+});
+document.getElementById('videoInput').addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+  if (!file.type.startsWith('video/')) { alert('비디오 파일을 올려주세요 😊'); return; }
+  videoFile = file;
+  extractedFrames = [];
+
+  const player = document.getElementById('videoPlayer');
+  if (player._blobUrl) URL.revokeObjectURL(player._blobUrl);
+  const url = URL.createObjectURL(file);
+  player._blobUrl = url;
+  player.src = url;
+
+  document.getElementById('videoName').textContent = file.name;
+  document.getElementById('videoSize').textContent = (file.size / (1024 * 1024)).toFixed(1) + ' MB';
+  document.getElementById('videoPreview').classList.add('visible');
+  uploadZone.style.display = 'none';
+
+  // Show "extracting" state immediately
+  setStatus('extracting', '🎞️ 영상에서 장면을 추출하고 있어요...');
+  document.getElementById('videoLoadingOverlay').classList.add('hidden');
+  showPlaceholderStrip();
+
+  function startExtraction() {
+    extractFrames(player, 5).then(frames => {
+      extractedFrames = frames;
+      if (frames.length > 0) {
+        showFrameStrip(frames);
+        setStatus('ready', '✅ 준비 완료! 분석 시작 버튼을 눌러주세요 👇');
+      } else {
+        showFrameStrip([]);
+        setStatus('ready', '⚠️ 프레임 추출 실패 — 분석은 계속 진행돼요');
+      }
+    }).catch(err => {
+      console.error('[handleFile] 추출 오류:', err.message);
+      setStatus('ready', '⚠️ 프레임 추출 실패 — 분석은 계속 진행돼요');
+    });
+  }
+
+  if (player.readyState >= 2) {
+    startExtraction();
+  } else {
+    player.addEventListener('canplay', startExtraction, { once: true });
+  }
+}
+
+function removeVideo() {
+  videoFile = null;
+  extractedFrames = [];
+  const player = document.getElementById('videoPlayer');
+  if (player._blobUrl) { URL.revokeObjectURL(player._blobUrl); player._blobUrl = null; }
+  player.src = '';
+  document.getElementById('videoPreview').classList.remove('visible');
+  document.getElementById('frameStripWrap').classList.remove('visible');
+  document.getElementById('frameStrip').innerHTML = '';
+  uploadZone.style.display = '';
+  document.getElementById('videoInput').value = '';
+  setStatus('loading', '영상을 불러오는 중이에요...');
+}
+
+function setStatus(state, msg) {
+  const bar = document.getElementById('videoStatusBar');
+  const txt = document.getElementById('videoStatusText');
+  const cls = state === 'ready' ? 'vsb-ready' : state === 'extracting' ? 'vsb-extracting' : 'vsb-loading';
+  bar.className = 'video-status-bar ' + cls;
+  txt.textContent = msg;
+}
+
+function showPlaceholderStrip() {
+  const strip = document.getElementById('frameStrip');
+  strip.innerHTML = '';
+  for (let i = 0; i < 5; i++) {
+    const ph = document.createElement('div');
+    ph.className = 'frame-thumb frame-placeholder';
+    ph.innerHTML = '<div class="frame-ph-inner"></div>';
+    strip.appendChild(ph);
+  }
+  document.getElementById('frameCount').textContent = '(추출 중...)';
+  document.getElementById('frameStripWrap').classList.add('visible');
+}
+
+function showFrameStrip(frames) {
+  const strip = document.getElementById('frameStrip');
+  strip.innerHTML = '';
+  if (!frames || frames.length === 0) {
+    document.getElementById('frameCount').textContent = '(추출 실패 — 분석은 정상 진행돼요)';
+    return;
+  }
+  frames.forEach(f => {
+    const img = document.createElement('img');
+    img.className = 'frame-thumb';
+    img.src = 'data:image/jpeg;base64,' + f.base64;
+    img.title = f.timeLabel;
+    strip.appendChild(img);
+  });
+  document.getElementById('frameCount').textContent = '(' + frames.length + '장 추출 완료 ✓)';
+  document.getElementById('frameStripWrap').classList.add('visible');
+}
+
+// ════════════════════════════════════════════════
+//  FRAME EXTRACTION — WebCodecs (fast path)
+//
+//  1. Read file as ArrayBuffer
+//  2. Use MP4Box.js to locate I-frame (keyframe) byte offsets
+//  3. Feed raw NAL chunks directly into VideoDecoder
+//  4. On each decoded VideoFrame → draw to canvas → JPEG
+//  No <video> element involved. No seeking. Very fast.
+// ════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════
+//  FRAME EXTRACTION — WebCodecs + MP4Box
+//
+//  핵심 수정:
+//  - 각 타깃 시간의 직전 keyframe부터 delta 포함 전송
+//  - 모든 샘플 수집 후 한 번만 flush
+//  - 타임스탬프 매칭 윈도우 안정적으로 계산
+// ════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════
+//  FRAME EXTRACTION
+//  경로 1: WebCodecs + MP4Box (Chrome/Edge, 빠름)
+//  경로 2: <video> seek (Safari/Firefox, 느리지만 확실)
+// ════════════════════════════════════════════════
+
+// ── 경로 1: WebCodecs ──
+
+// ════════════════════════════════════════════════
+//  FRAME EXTRACTION
+//  단일 <video> 엘리먼트, seek + rVFC/seeked 캡처
+//  가장 단순하고 신뢰할 수 있는 방식
+// ════════════════════════════════════════════════
+
+// 영상 하나의 특정 시간대 프레임을 캡처
+// rVFC 지원 시: seek → rVFC 콜백에서 캡처
+// 미지원 시: seek → seeked 이벤트에서 캡처
+function captureAt(video, timeSec) {
+  return new Promise((resolve) => {
+    const doCapture = () => {
+      try {
+        const c  = document.createElement('canvas');
+        const sc = Math.min(1, 640 / (video.videoWidth  || 640));
+        c.width  = Math.round((video.videoWidth  || 640) * sc);
+        c.height = Math.round((video.videoHeight || 360) * sc);
+        c.getContext('2d').drawImage(video, 0, 0, c.width, c.height);
+        const b64 = c.toDataURL('image/jpeg', 0.82).split(',')[1];
+        console.log('[captureAt] ✓', formatTime(timeSec), c.width + 'x' + c.height);
+        resolve({ base64: b64, timeLabel: formatTime(timeSec), timeSec: Math.round(timeSec) });
+      } catch(e) {
+        console.warn('[captureAt] canvas 실패:', e.message);
+        resolve(null);
+      }
+    };
+
+    // Seek to target time
+    video.currentTime = timeSec;
+
+    if (typeof video.requestVideoFrameCallback === 'function') {
+      // rVFC fires once the frame at currentTime is decoded and ready
+      video.requestVideoFrameCallback((now, meta) => {
+        console.log('[captureAt] rVFC fired at', meta.mediaTime?.toFixed(2), 'target:', timeSec.toFixed(2));
+        doCapture();
+      });
+    } else {
+      // Fallback: capture on seeked event
+      const onSeeked = () => {
+        clearTimeout(timer);
+        doCapture();
+      };
+      const timer = setTimeout(() => {
+        video.removeEventListener('seeked', onSeeked);
+        console.warn('[captureAt] seeked timeout at', formatTime(timeSec));
+        resolve(null);
+      }, 6000);
+      video.addEventListener('seeked', onSeeked, { once: true });
+    }
+  });
+}
+
+// 전체 추출 함수 — 순차적으로 captureAt 호출
+async function extractFrames(video, count = 5) {
+  console.log('[extractFrames] 시작, readyState:', video.readyState, 'duration:', video.duration);
+
+  // duration 확보까지 대기
+  if (!video.duration || !isFinite(video.duration)) {
+    await new Promise((resolve, reject) => {
+      const iv = setInterval(() => {
+        if (video.duration && isFinite(video.duration)) {
+          clearInterval(iv); resolve();
+        }
+      }, 100);
+      setTimeout(() => { clearInterval(iv); reject(new Error('duration timeout')); }, 10000);
+      ['loadedmetadata', 'durationchange', 'canplay'].forEach(ev =>
+        video.addEventListener(ev, function h() {
+          if (video.duration && isFinite(video.duration)) {
+            video.removeEventListener(ev, h); clearInterval(iv); resolve();
+          }
+        })
+      );
+    });
+  }
+
+  const dur = video.duration;
+  console.log('[extractFrames] duration:', dur.toFixed(2), 's');
+
+  // 균등 간격 타깃 시간
+  const targets = Array.from({ length: count }, (_, i) =>
+    Math.min(dur - 0.5, Math.max(0.5, dur * 0.05 + (dur * 0.90) * i / Math.max(count - 1, 1)))
+  );
+  console.log('[extractFrames] 타깃:', targets.map(t => t.toFixed(1) + 's').join(', '));
+
+  // 재생 멈추고 순차 캡처
+  video.pause();
+
+  const frames = [];
+  for (const t of targets) {
+    const f = await captureAt(video, t);
+    if (f) frames.push(f);
+    // UI 업데이트
+    document.getElementById('frameCount').textContent =
+      '(' + frames.length + '/' + count + '장 캡처 중...)';
+  }
+
+  console.log('[extractFrames] 완료, 성공:', frames.length, '/', count);
+  return frames;
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) return resolve();
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+// ── HELPERS ──
+function formatTime(sec) {
+  const m = Math.floor(sec / 60).toString().padStart(2, '0');
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function setSel(el, gid) {
+  document.querySelectorAll('#' + gid + ' .toggle-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  if (gid === 'ageGroup')   selectedAge   = el.textContent;
+  if (gid === 'focusGroup') selectedFocus = el.textContent;
+  if (gid === 'moodGroup')  selectedMood  = el.textContent;
+}
+
+const delay = ms => new Promise(r => setTimeout(r, ms));
+
+// ── ANALYSIS ──
+
+async function startAnalysis() {
+  if (!videoFile) { alert('먼저 영상을 올려주세요 😊'); return; }
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('progressCard').classList.add('visible');
+  document.getElementById('resultsWrap').classList.remove('visible');
+
+  const steps = ['ps1', 'ps2', 'ps3', 'ps4'];
+  const setStep = i => steps.forEach((s, j) => {
+    document.getElementById(s).className = j < i ? 'p-step done' : j === i ? 'p-step active' : 'p-step';
+  });
+
+  // STEP 1: 프레임 준비 확인
+  setStep(0);
+  document.getElementById('progressFill').style.width = '8%';
+
+  if (extractedFrames.length === 0) {
+    document.getElementById('progressMsg').textContent = '프레임 추출 중... 잠깐만요 ⏳';
+    for (let i = 0; i < 30 && extractedFrames.length === 0; i++) await delay(500);
+  }
+
+  const frameCount = extractedFrames.length;
+  document.getElementById('progressMsg').textContent =
+    frameCount > 0
+      ? `📸 ${frameCount}개 프레임 확보! AI에게 전송할게요`
+      : '⚠️ 프레임 추출 실패 — 영상 메타데이터만으로 분석해요';
+
+  document.getElementById('progressFill').style.width = '25%';
+  await delay(500);
+
+  // STEP 2: API 전송
+  setStep(1);
+  document.getElementById('progressMsg').textContent =
+    frameCount > 0
+      ? `👁️ ${frameCount}장의 실제 장면을 Claude가 살펴보고 있어요`
+      : '🔍 영상 정보를 바탕으로 분석 중이에요';
+  document.getElementById('progressFill').style.width = '35%';
+
+  const tick = (async () => {
+    for (const p of [45, 55, 65, 74, 82]) {
+      await delay(800);
+      document.getElementById('progressFill').style.width = p + '%';
+    }
+  })();
+
+  // STEP 3
+  setStep(2);
+  document.getElementById('progressMsg').textContent = '부모님과 아이의 상호작용을 살펴보고 있어요 💛';
+
+  let data;
+  try {
+    data = await callClaudeVision(buildPrompt(), extractedFrames);
+    await tick;
+  } catch(e) {
+    await tick;
+    // Show real error to user — no silent mock fallback
+    document.getElementById('progressCard').classList.remove('visible');
+    document.getElementById('analyzeBtn').disabled = false;
+    alert('분석 중 오류가 발생했어요 😔\n\n' + e.message + '\n\nAPI 키 설정을 확인하거나 잠시 후 다시 시도해 주세요.');
+    return;
+  }
+
+  // STEP 4: 렌더링
+  setStep(3);
+  document.getElementById('progressMsg').textContent = '따뜻한 리포트를 정리하고 있어요 ✍️';
+  document.getElementById('progressFill').style.width = '95%';
+  await delay(400);
+
+  steps.forEach(s => document.getElementById(s).className = 'p-step done');
+  document.getElementById('progressFill').style.width = '100%';
+  await delay(300);
+
+  renderResults(data);
+  document.getElementById('progressCard').classList.remove('visible');
+  document.getElementById('resultsWrap').classList.add('visible');
+  document.getElementById('analyzeBtn').disabled = false;
+  document.getElementById('resultsWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function buildPrompt() {
+  const hasFrames = extractedFrames.length > 0;
+
+  // 설정값 읽기 — DOM에서 직접 읽어서 state 불일치 방지
+  const age   = document.querySelector('#ageGroup   .toggle-btn.active')?.textContent || selectedAge;
+  const focus = document.querySelector('#focusGroup .toggle-btn.active')?.textContent || selectedFocus;
+  const mood  = document.querySelector('#moodGroup  .toggle-btn.active')?.textContent || selectedMood;
+
+  const focusGuide = {
+    '전반적으로 다 알고 싶어요':      '칭찬 방식, 감정 교류, 반응 방식, 놀이 주도권 모두 균형 있게 분석해 주세요.',
+    '칭찬을 잘 하고 있는지 궁금해요':  '칭찬의 빈도, 구체성, 아이 반응을 특히 집중해서 분석해 주세요.',
+    '감정이 잘 통하는지 궁금해요':     '표정, 눈 맞춤, 감정 공명 순간을 특히 집중해서 분석해 주세요.',
+    '아이 말을 잘 들어주는지 궁금해요': '반응 속도, 따라 말하기, 아이 주도 따르기를 특히 집중해서 분석해 주세요.',
+  };
+  const focusInstruction = focusGuide[focus] || focusGuide['전반적으로 다 알고 싶어요'];
+
+  const frameSection = hasFrames ? `
+## 실제 영상 프레임 분석 지시
+첨부된 ${extractedFrames.length}장의 실제 영상 프레임을 직접 보고 분석하세요.
+타임스탬프: ${extractedFrames.map(f => f.timeLabel).join(', ')}
+
+각 프레임에서 반드시 관찰하고 보고서에 인용할 것:
+- 부모와 아이의 표정 (웃음, 집중, 무표정 등)
+- 시선 방향과 눈 맞춤 여부
+- 신체 거리와 접촉 (가까이 앉음, 손 잡기 등)
+- 놀이 도구와 활동 종류
+- 누가 주도하고 있는지 (부모 vs 아이)
+
+⚠️ 중요: 프레임에서 실제로 관찰한 내용만 언급하세요. 프레임에서 보이지 않는 내용을 지어내지 마세요.
+moments의 time 필드는 반드시 첨부된 타임스탬프 중 하나를 사용하세요.
+` : `
+## 분석 방식
+영상 프레임을 가져올 수 없었습니다. 아이 나이(${age})와 상태(${mood})를 바탕으로
+일반적인 놀이 상황을 가정하여 분석하되, 가정임을 feelingSummary에 한 번 언급해 주세요.
+`;
+
+  return `당신은 아동 심리 및 부모-자녀 상호작용 전문가입니다.
+
+## 아이 정보
+- 나이: ${age}
+- 요즘 상태: ${mood}
+- 부모님이 특히 궁금한 것: ${focus}
+
+## 분석 집중 포인트
+${focusInstruction}
+
+${frameSection}
+
+## 출력 규칙
+- PCIT 전문용어(PRIDE, CDI, PDI, DPICS) 절대 사용 금지
+- 부모님께 직접 말하듯 따뜻하고 친근한 언어 사용
+- 각 분석 카드의 text는 실제 관찰 내용을 구체적으로 포함할 것
+- 같은 내용이 반복되지 않도록 각 카드를 독립적으로 작성
+
+반드시 아래 JSON만 반환하세요 (다른 텍스트 없이):
+
+{
+  "feelingEmoji": "<이모지 1개>",
+  "feelingTitle": "<따뜻한 한 줄 제목>",
+  "feelingSummary": "<부모님께 직접 말하듯 2-3문장. 실제 관찰한 구체적 장면 언급>",
+  "scores": [
+    {"label":"칭찬 표현","emoji":"🌟","value":<0-100>},
+    {"label":"감정 교류","emoji":"💛","value":<0-100>},
+    {"label":"반응하기","emoji":"🤝","value":<0-100>},
+    {"label":"함께 집중","emoji":"👀","value":<0-100>}
+  ],
+  "analysisCards": [
+    {"emoji":"🌟","title":"칭찬 & 격려","subtitle":"아이에게 칭찬을 어떻게 하고 있나요?","score":<0-100>,"colorClass":"fill-peach","text":"<실제 관찰 기반 2-3문장>","tags":[{"text":"<태그>","type":"good|warn|info"}]},
+    {"emoji":"💛","title":"감정 나누기","subtitle":"아이 마음을 얼마나 읽어주고 있나요?","score":<0-100>,"colorClass":"fill-yellow","text":"<실제 관찰 기반 2-3문장>","tags":[{"text":"<태그>","type":"good|warn|info"}]},
+    {"emoji":"🗣️","title":"따라하기 & 맞장구","subtitle":"아이의 말과 행동에 얼마나 반응하나요?","score":<0-100>,"colorClass":"fill-green","text":"<실제 관찰 기반 2-3문장>","tags":[{"text":"<태그>","type":"good|warn|info"}]},
+    {"emoji":"🎯","title":"아이 주도 따르기","subtitle":"놀이를 누가 이끌고 있나요?","score":<0-100>,"colorClass":"fill-blue","text":"<실제 관찰 기반 2-3문장>","tags":[{"text":"<태그>","type":"good|warn|info"}]}
+  ],
+  "checklist": [
+    {"label":"<소통 습관>","desc":"<관찰 기반 한 문장>","status":"yes|partial|no"},
+    {"label":"<소통 습관>","desc":"<관찰 기반 한 문장>","status":"yes|partial|no"},
+    {"label":"<소통 습관>","desc":"<관찰 기반 한 문장>","status":"yes|partial|no"},
+    {"label":"<소통 습관>","desc":"<관찰 기반 한 문장>","status":"yes|partial|no"},
+    {"label":"<소통 습관>","desc":"<관찰 기반 한 문장>","status":"yes|partial|no"},
+    {"label":"<소통 습관>","desc":"<관찰 기반 한 문장>","status":"yes|partial|no"}
+  ],
+  "moments": [
+    {"time":"<실제 타임스탬프>","event":"<순간 이름>","detail":"<프레임에서 본 구체적 장면>"},
+    {"time":"<실제 타임스탬프>","event":"<순간 이름>","detail":"<프레임에서 본 구체적 장면>"},
+    {"time":"<실제 타임스탬프>","event":"<순간 이름>","detail":"<프레임에서 본 구체적 장면>"},
+    {"time":"<실제 타임스탬프>","event":"<순간 이름>","detail":"<프레임에서 본 구체적 장면>"}
+  ],
+  "tips": [
+    {"title":"<팁 제목>","text":"<이 영상에서 관찰한 상황에 맞는 구체적 예시>"},
+    {"title":"<팁 제목>","text":"<이 영상에서 관찰한 상황에 맞는 구체적 예시>"},
+    {"title":"<팁 제목>","text":"<이 영상에서 관찰한 상황에 맞는 구체적 예시>"},
+    {"title":"<팁 제목>","text":"<이 영상에서 관찰한 상황에 맞는 구체적 예시>"}
+  ],
+  "closingMessage": "<부모님을 따뜻하게 격려하는 마무리 2문장>"
+}`;
+}
+
+async function callClaudeVision(prompt, frames) {
+  const content = [];
+
+  if (frames.length > 0) {
+    content.push({ type: 'text', text: `아래 ${frames.length}장의 실제 영상 프레임을 순서대로 분석해 주세요:` });
+    frames.forEach((f, i) => {
+      content.push({ type: 'text', text: `[프레임 ${i + 1}/${frames.length} — ${f.timeLabel}]` });
+      content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: f.base64 } });
+    });
+  }
+
+  content.push({ type: 'text', text: prompt });
+
+  const res = await fetch('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content }]
+    })
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `API 오류 (${res.status})`);
+  }
+
+  const data = await res.json();
+
+  // Log for debugging
+  console.log('API response:', data);
+  console.log('Frames sent:', frames.length);
+  console.log('Stop reason:', data.stop_reason);
+
+  const text = data.content.map(i => i.text || '').join('');
+  const start = text.indexOf('{');
+  const end   = text.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('응답에서 JSON을 찾을 수 없어요');
+  return JSON.parse(text.slice(start, end + 1));
+}
+function getMockData() {
+  return {
+    feelingEmoji:"🌈",
+    feelingTitle:"따뜻하고 활기찬 놀이 시간이었어요!",
+    feelingSummary:"부모님과 아이가 함께 집중하는 시간이 많았고, 서로 웃으며 즐겁게 교감하는 모습이 정말 보기 좋았어요. 칭찬도 자주 해주셨는데, 조금 더 구체적으로 표현해 주시면 아이가 훨씬 더 크게 기뻐한답니다 😊",
+    scores:[
+      {label:"칭찬 표현",emoji:"🌟",value:82},
+      {label:"감정 교류",emoji:"💛",value:74},
+      {label:"반응하기",emoji:"🤝",value:68},
+      {label:"함께 집중",emoji:"👀",value:79}
+    ],
+    analysisCards:[
+      {emoji:"🌟",title:"칭찬 & 격려",subtitle:"아이에게 칭찬을 어떻게 하고 있나요?",score:82,colorClass:"fill-peach",
+        text:"영상 내내 아이를 자주 칭찬해 주셨어요! 다만 '잘했어', '착하다' 같은 표현보다 '블록을 이렇게 높이 쌓았네!'처럼 아이가 한 행동을 구체적으로 말해주면, 아이가 자신이 뭘 잘했는지 더 잘 알게 되고 자신감도 쑥쑥 자라요.",
+        tags:[{text:"칭찬 자주 함 👍",type:"good"},{text:"더 구체적으로 해보기",type:"warn"}]},
+      {emoji:"💛",title:"감정 나누기",subtitle:"아이 마음을 얼마나 읽어주고 있나요?",score:74,colorClass:"fill-yellow",
+        text:"아이가 신나거나 집중할 때 부모님도 함께 표정이 밝아지는 모습이 참 좋았어요. 아이가 장난감이 뜻대로 안 돼서 답답해할 때, '아 그게 잘 안 됐구나, 속상하지?'라고 먼저 마음을 읽어주면 아이가 훨씬 빨리 안정된답니다.",
+        tags:[{text:"표정 교류 잘 됨",type:"good"},{text:"힘들 때 공감 표현",type:"warn"}]},
+      {emoji:"🗣️",title:"따라하기 & 맞장구",subtitle:"아이의 말과 행동에 얼마나 반응하나요?",score:68,colorClass:"fill-green",
+        text:"아이가 말할 때 잘 들어주셨어요. 한 가지 팁을 드리자면, 아이가 '부릉부릉' 하면 부모님도 '그래, 부릉부릉!'하고 따라해 주세요. 아이는 '내가 하는 게 재밌는 거구나'하고 느끼고 더 신이 나서 놀게 된답니다.",
+        tags:[{text:"경청 잘 함",type:"good"},{text:"말·행동 따라하기 늘리기",type:"warn"}]},
+      {emoji:"🎯",title:"아이 주도 따르기",subtitle:"놀이를 누가 이끌고 있나요?",score:79,colorClass:"fill-blue",
+        text:"아이가 놀이를 주도하도록 잘 따라가 주시는 편이에요. 가끔 '이거 해봐', '저기 가자'하는 순간이 있었는데, 이 시간만큼은 아이가 완전히 대장이 되도록 맡겨두면 아이 자신감이 더욱 커진답니다.",
+        tags:[{text:"아이 주도 존중",type:"good"},{text:"지시 조금 줄이기",type:"info"}]}
+    ],
+    checklist:[
+      {label:"아이가 한 일을 말로 설명해 주기",desc:"'와, 빨간 블록을 저기 올렸네!'처럼 아이 행동을 중계해 주는 것",status:"yes"},
+      {label:"구체적으로 칭찬하기",desc:"'잘했어' 대신 어떤 점이 좋았는지 콕 집어서 말해주기",status:"partial"},
+      {label:"아이 말 그대로 따라 반복하기",desc:"아이가 한 말을 그대로 혹은 조금 늘려서 다시 말해주기",status:"yes"},
+      {label:"아이 행동 따라 하기",desc:"아이가 하는 것을 옆에서 똑같이 해보며 함께 놀기",status:"partial"},
+      {label:"즐거운 표정·목소리로 놀기",desc:"진심으로 즐기는 모습을 표정과 목소리로 표현하기",status:"yes"},
+      {label:"부정적인 말 줄이기",desc:"'안 돼', '그렇게 하면 안 되지' 같은 표현 최소화하기",status:"yes"}
+    ],
+    moments:[
+      {time:"00:42",event:"🌟 첫 번째 구체적 칭찬",detail:"아이가 블록 탑을 쌓자 '혼자서 이렇게 높이 쌓았네!'라고 반응해 아이가 환하게 웃었어요."},
+      {time:"02:15",event:"👀 같이 집중하는 순간",detail:"부모님과 아이가 같은 장난감을 함께 바라보며 눈을 맞추는 따뜻한 순간이었어요."},
+      {time:"05:30",event:"💛 마음을 나눈 순간",detail:"장난감이 부서지자 아이가 속상해했는데, 부모님이 바로 다가가 등을 다독여 주셨어요."},
+      {time:"08:10",event:"🎉 함께 신난 순간",detail:"자동차 놀이에서 부모님이 소리를 따라 하자 아이가 더욱 신이 나서 웃음이 넘쳤어요."}
+    ],
+    tips:[
+      {title:"아이 행동을 말로 중계해 보세요",text:"아이가 노는 걸 스포츠 중계하듯 말해주세요. '우와, 초록 블록을 맨 위에 올렸네!' 이렇게요. 아이는 자신이 하는 일이 중요하다고 느끼게 되어 자신감이 쑥쑥 자란답니다."},
+      {title:"똑같이 따라하기 놀이를 해보세요",text:"아이가 자동차를 밀면 부모님도 자동차를 밀어보세요. 아이가 '짝짝' 하면 부모님도 '짝짝' 해주세요. 아이는 '내가 대장이구나!'하고 느끼게 된답니다."},
+      {title:"힘들 때 마음부터 읽어주세요",text:"아이가 속상해할 때 해결책보다 마음을 먼저 읽어주세요. '그게 잘 안 됐구나, 화가 났지?' 한 마디가 아이를 훨씬 빨리 안정시켜 준답니다."},
+      {title:"하루 10분, 아이가 완전히 대장인 시간",text:"매일 10분만이라도 아이가 놀이를 완전히 이끌도록 해주세요. 질문이나 지시 없이, 아이가 하자는 대로 따라가 보세요. 아이의 자신감이 쑥쑥 자란답니다."}
+    ],
+    closingMessage:"오늘 아이와 함께 시간을 내주신 것만으로도 정말 훌륭하세요 💛 완벽한 부모보다, 함께 있어주는 부모가 아이에게는 가장 큰 선물이에요."
+  };
+}
+
+function renderResults(d) {
+  document.getElementById('feelingEmoji').textContent = d.feelingEmoji||'🌟';
+  document.getElementById('feelingTitle').textContent = d.feelingTitle||'';
+  document.getElementById('feelingSummary').textContent = d.feelingSummary||'';
+
+  const sp = document.getElementById('scorePills');
+  sp.innerHTML = '';
+  (d.scores||[]).forEach(s => {
+    sp.innerHTML += `<div class="score-pill">${s.emoji} ${s.label} <span class="pill-num">${s.value}</span></div>`;
+  });
+
+  const ag = document.getElementById('analysisGrid');
+  ag.innerHTML = '';
+  (d.analysisCards||[]).forEach(c => {
+    const tags = (c.tags||[]).map(t=>`<span class="tag tag-${t.type}">${t.text}</span>`).join('');
+    ag.innerHTML += `
+      <div class="a-card">
+        <div class="a-card-top">
+          <div class="a-card-emoji">${c.emoji}</div>
+          <div><div class="a-card-title">${c.title}</div><div class="a-card-sub">${c.subtitle}</div></div>
+        </div>
+        <div class="a-card-meter"><div class="a-card-fill ${c.colorClass}" style="width:0%" data-target="${c.score}"></div></div>
+        <div class="a-card-text">${c.text}</div>
+        <div class="tag-row">${tags}</div>
+      </div>`;
+  });
+  setTimeout(() => {
+    document.querySelectorAll('.a-card-fill[data-target]').forEach(el => { el.style.width = el.dataset.target+'%'; });
+  }, 400);
+
+  const cl = document.getElementById('checklistCard');
+  cl.innerHTML = '';
+  (d.checklist||[]).forEach(item => {
+    const icon = item.status==='yes'?'✓':item.status==='partial'?'△':'✕';
+    const cls = item.status==='yes'?'cs-yes':item.status==='partial'?'cs-partial':'cs-no';
+    cl.innerHTML += `
+      <div class="check-item">
+        <div class="check-status ${cls}">${icon}</div>
+        <div><div class="check-label">${item.label}</div><div class="check-desc">${item.desc}</div></div>
+      </div>`;
+  });
+
+  const mc = document.getElementById('momentsCard');
+  mc.innerHTML = '';
+  (d.moments||[]).forEach(m => {
+    mc.innerHTML += `
+      <div class="moment-item">
+        <div class="moment-time">${m.time}</div>
+        <div><div class="moment-event">${m.event}</div><div class="moment-detail">${m.detail}</div></div>
+      </div>`;
+  });
+
+  const tc = document.getElementById('tipsCard');
+  tc.innerHTML = '';
+  (d.tips||[]).forEach((t,i) => {
+    tc.innerHTML += `
+      <div class="tip-item">
+        <div class="tip-num">${i+1}</div>
+        <div class="tip-text"><strong>${t.title}</strong>${t.text}</div>
+      </div>`;
+  });
+
+  if(d.closingMessage) document.getElementById('closeNoteText').textContent = d.closingMessage;
+}
+
+function resetAll() {
+  removeVideo();
+  document.getElementById('resultsWrap').classList.remove('visible');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+</script>
+</body>
+</html>
